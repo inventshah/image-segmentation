@@ -1,0 +1,317 @@
+<html>
+	<head>
+		<title>Image Segmentation</title>
+		<link rel="icon" type="image/x-icon" href="favicon.png" />
+		<script type="text/javascript">
+			const utf8_decoder = new TextDecoder();
+			function c_strlen(mem, ptr) {
+				let len = 0;
+				while (mem[ptr++]) len++;
+				return len;
+			}
+			function c_string(buffer, ptr) {
+				const mem = new Uint8Array(buffer);
+				const len = c_strlen(mem, ptr);
+				const bytes = new Uint8Array(buffer, ptr, len);
+				return utf8_decoder.decode(bytes);
+			}
+
+			function puts(ptr) {
+				console.log(c_string(wasm.memory.buffer, ptr));
+			}
+			function random_int() {
+				return parseInt(Math.random() * (1 << 31));
+			}
+
+			const wasmStatus = WebAssembly.instantiateStreaming(
+				fetch("main.wasm"),
+				{
+					env: {
+						puts,
+						random_int,
+					},
+				}
+			).then((w) => {
+				window.wasm_ref = w;
+				window.wasm = w.instance.exports;
+			});
+		</script>
+
+		<style>
+			body {
+				background-color: beige;
+			}
+			input {
+				font-family: inherit;
+			}
+			.alg {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+			}
+			.alg h2 {
+				margin-bottom: 5px;
+			}
+			.alg div {
+				margin: 5px;
+			}
+			.alg canvas,
+			.alg img {
+				border: 5px solid black;
+				border-radius: 10px;
+				margin: 10px;
+			}
+
+			.row {
+				display: flex;
+				flex-wrap: wrap;
+			}
+		</style>
+	</head>
+	<body>
+		<h1 style="text-align: center; margin-top: 20px">
+			Image Segmentation Methods Comparison
+		</h1>
+		<div class="row" style="justify-content: space-evenly">
+			<div style="display: flex; flex-direction: column">
+				<div class="alg" id="source">
+					<h2>Source</h2>
+					<div>
+						<label> Source: <input type="file" /> </label>
+					</div>
+					<img src="source.png" width="400" />
+				</div>
+				<div style="width: 400px">
+					<p>
+						<em>
+							Collection of image segmentation techniques written
+							in C and compiled to WebAssembly. Computation time
+							in parentheses.
+						</em>
+					</p>
+					<p>
+						Digital images use gamma encodings to store luminance.
+						Gamma correction can make image luminance appear more
+						realistic.
+						<label>
+							<input
+								type="checkbox"
+								id="gamma"
+								name="gamma"
+								checked="true"
+							/>
+							use gamma correction
+						</label>
+					</p>
+					<p>
+						<b>K-Means:</b> A randomized clustering algorithm to
+						group pixels into K groups based on Euclidean distance
+						between RGB values. A higher K leads to more detailed
+						results.
+					</p>
+					<p>
+						<b>Mean Shift:</b> A hill climbing algorithm to
+						iteratively find local maxima. The kernel size controls
+						the sensitivity to smaller modes. The least two
+						significant bits are dropped from each color component.
+					</p>
+					<p>
+						<b>Split & Merge:</b> A two stage algorithm to split an
+						image into homogenous regions (by subdividing
+						nonhomogeneous blocks into quadrants) and then merge
+						similar neighboring blocks into groups. The tolerance
+						controls the threshold at which blocks are deemed
+						homogenous.
+					</p>
+					<p>
+						<b>Balanced Histogram Thresholding:</b> An automatic
+						thresholding method that divides the color space by
+						finding the midpoint of an RGB histogram.
+					</p>
+				</div>
+			</div>
+
+			<div
+				style="
+					display: flex;
+					flex-direction: column;
+					justify-content: space-evenly;
+				"
+			>
+				<div class="row">
+					<div class="alg" id="kmeans">
+						<h2>K-Means</h2>
+						<div>
+							<label>
+								K:
+								<input
+									type="number"
+									value="3"
+									min="2"
+									max="25"
+								/>
+							</label>
+
+							<input
+								type="number"
+								value="200"
+								style="display: none"
+							/>
+						</div>
+						<canvas></canvas>
+					</div>
+					<div class="alg" id="meanshift">
+						<h2>Mean Shift</h2>
+						<div>
+							<label>
+								Kernel Size:
+								<input
+									type="number"
+									value="8"
+									min="1"
+									max="25"
+								/>
+							</label>
+
+							<input
+								type="number"
+								value="100"
+								style="display: none"
+							/>
+						</div>
+						<canvas></canvas>
+					</div>
+				</div>
+				<div class="row">
+					<div class="alg" id="split_and_merge">
+						<h2>Split & Merge</h2>
+						<div>
+							<label>
+								Tolerance:
+								<input
+									type="number"
+									value="200"
+									min="50"
+									max="350"
+									step="10"
+								/>
+							</label>
+						</div>
+						<canvas></canvas>
+					</div>
+					<div class="alg" id="histogram">
+						<h2>Balanced Histogram Thresholding</h2>
+						<div>
+							<label>no parameters</label>
+						</div>
+						<canvas style="margin-top: 13px"></canvas>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script type="text/javascript">
+			function load(source) {
+				for (const elm of document.getElementsByTagName("canvas")) {
+					elm.width = source.width;
+					elm.height = source.height;
+					run_alg(elm.parentElement.id);
+				}
+			}
+
+			const source = document.querySelector("img");
+			source.onload = () => {
+				window.width = parseInt(source.width);
+				window.height = parseInt(source.height);
+				load(source);
+			};
+
+			function run_alg(alg) {
+				if (window.wasm == undefined || window.width == undefined)
+					return;
+
+				const container = document.getElementById(alg);
+				const canvas = container.getElementsByTagName("canvas")[0];
+				const ctx = canvas.getContext("2d");
+				ctx.drawImage(source, 0, 0, width, height);
+
+				const args = [...container.getElementsByTagName("input")].map(
+					(elm) => +elm.value
+				);
+
+				const img_ptr = wasm.malloc(width * height * 4);
+
+				const data = ctx.getImageData(0, 0, width, height).data;
+				const bytes = new Uint8ClampedArray(
+					wasm.memory.buffer,
+					img_ptr,
+					width * height * 4
+				);
+				bytes.set(data);
+
+				const title = container.getElementsByTagName("h2")[0].innerText;
+				const name = title.replace(/ \(.*\)$/, "");
+
+				try {
+					const start = performance.now();
+					wasm[alg](img_ptr, width, height, ...args);
+					wasm.memory_reset();
+					const end = performance.now();
+					container.getElementsByTagName(
+						"h2"
+					)[0].innerHTML = `${name} <span style="font-size: .8em"> <em> (${Math.round(
+						end - start
+					)} ms)</em> </span>`;
+				} catch (err) {
+					container.getElementsByTagName(
+						"h2"
+					)[0].innerText = `${name} (error)`;
+					console.error(err);
+				}
+
+				const imageData = ctx.getImageData(0, 0, width, height);
+				imageData.data.set(
+					new Uint8ClampedArray(
+						wasm.memory.buffer,
+						img_ptr,
+						width * height * 4
+					)
+				);
+				ctx.putImageData(imageData, 0, 0);
+			}
+
+			function* alg_iter() {
+				for (const elm of document.getElementsByClassName("alg")) {
+					if (elm.id == "source") continue;
+					yield elm;
+				}
+			}
+
+			document.getElementById("gamma").onchange = (e) => {
+				wasm.change_gamma_status(e.target.checked ? 1 : 0);
+				for (const elm of alg_iter()) run_alg(elm.id);
+			};
+
+			document.querySelector('input[type="file"]').onchange = (e) => {
+				console.log(e.target.files);
+				if (!e.target.files) return;
+				source.src = URL.createObjectURL(e.target.files[0]);
+				// for (const elm of alg_iter()) run_alg(elm.id);
+			};
+
+			for (const elm of alg_iter()) {
+				for (const input of elm.getElementsByTagName("input")) {
+					input.onchange = () => {
+						run_alg(elm.id);
+					};
+				}
+				const canvas = elm.getElementsByTagName("canvas")[0];
+				canvas.onclick = () => run_alg(elm.id);
+			}
+
+			wasmStatus.then(() => {
+				for (const elm of alg_iter()) run_alg(elm.id);
+			});
+		</script>
+	</body>
+</html>
