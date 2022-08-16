@@ -33,6 +33,14 @@ Run `make native`
 
 Non-make users: `cc -O3 -flto -o segment -lpng src/native.c src/kmeans.c src/meanshift.c src/histogram.c src/splitmerge.c src/utils.c`
 
+Run any of the following to produce an out.png file:
+```console
+./segment kmeans <source png> <k value>
+./segment meanshift <source png> <bandwidth value>
+./segment splitmerge <source png> <tolerance>
+./segment histogram <source png>
+```
+
 ## Individual repositories
 
 The implementations of the algorithms in this repository are based on the following:
