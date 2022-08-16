@@ -23,17 +23,41 @@
 				return parseInt(Math.random() * (1 << 31));
 			}
 
-			const wasmStatus = WebAssembly.instantiateStreaming(
-				fetch("main.wasm"),
-				{
+			if (!WebAssembly.instantiateStreaming) {
+				WebAssembly.instantiateStreaming = (promise, env) =>
+					promise
+						.then((r) => r.arrayBuffer())
+						.then((bytes) => WebAssembly.instantiate(bytes, env));
+			}
+
+			const wasmFetch = (file) =>
+				WebAssembly.instantiateStreaming(fetch(file), {
 					env: {
 						puts,
 						random_int,
 					},
-				}
-			).then((w) => {
-				window.wasm_ref = w;
-				window.wasm = w.instance.exports;
+				});
+			const wasmStatus = new Promise((resolve, reject) => {
+				wasmFetch("main.wasm")
+					.then((w) => {
+						window.wasm_ref = w;
+						window.wasm = w.instance.exports;
+						window.isSlow = false;
+						resolve();
+					})
+					.catch(() => {
+						wasmFetch("main-slow.wasm")
+							.then((w) => {
+								window.wasm_ref = w;
+								window.wasm = w.instance.exports;
+								window.isSlow = true;
+								resolve();
+							})
+							.catch((err) => {
+								console.error(err);
+								reject();
+							});
+					});
 			});
 		</script>
 
@@ -167,7 +191,7 @@
 								Kernel Size:
 								<input
 									type="number"
-									value="8"
+									value="4"
 									min="1"
 									max="25"
 								/>
@@ -296,7 +320,6 @@
 				console.log(e.target.files);
 				if (!e.target.files) return;
 				source.src = URL.createObjectURL(e.target.files[0]);
-				// for (const elm of alg_iter()) run_alg(elm.id);
 			};
 
 			for (const elm of alg_iter()) {
@@ -309,9 +332,18 @@
 				canvas.onclick = () => run_alg(elm.id);
 			}
 
-			wasmStatus.then(() => {
-				for (const elm of alg_iter()) run_alg(elm.id);
-			});
+			window.onload = () =>
+				wasmStatus.then(() => {
+					if (window.isSlow == true) {
+						document.getElementsByTagName("h1")[0].innerHTML +=
+							'<br/><span style="font-size: 70%; font-weight: normal;"><em>Because this browser does not support the optimized build, computation time may be slower than expected.</em></span>';
+						setTimeout(() => {
+							for (const elm of alg_iter()) run_alg(elm.id);
+						}, 50);
+					} else {
+						for (const elm of alg_iter()) run_alg(elm.id);
+					}
+				});
 		</script>
 	</body>
 </html>
