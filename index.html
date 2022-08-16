@@ -90,9 +90,27 @@
 				display: flex;
 				flex-wrap: wrap;
 			}
+
+			.alert {
+				padding: 20px;
+				background-color: #ff9800;
+				color: white;
+				margin-bottom: 15px;
+				display: none;
+				justify-content: center;
+				font-size: 2em;
+				border: 2px solid #965a00;
+				text-align: center;
+				position: sticky;
+				top: 0px;
+			}
 		</style>
 	</head>
 	<body>
+		<div id="warn" class="alert">
+			Because this browser does not support the optimized build,
+			computation time may be slower than expected.
+		</div>
 		<h1 style="text-align: center; margin-top: 20px">
 			Image Segmentation Methods Comparison
 		</h1>
@@ -335,8 +353,7 @@
 			window.onload = () =>
 				wasmStatus.then(() => {
 					if (window.isSlow == true) {
-						document.getElementsByTagName("h1")[0].innerHTML +=
-							'<br/><span style="font-size: 70%; font-weight: normal;"><em>Because this browser does not support the optimized build, computation time may be slower than expected.</em></span>';
+						document.getElementById("warn").style.display = "flex";
 						setTimeout(() => {
 							for (const elm of alg_iter()) run_alg(elm.id);
 						}, 50);
