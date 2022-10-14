@@ -1,7 +1,10 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 	<head>
 		<title>Image Segmentation</title>
 		<link rel="icon" type="image/x-icon" href="favicon.png" />
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
 		<script type="text/javascript">
 			const utf8_decoder = new TextDecoder();
 			function c_strlen(mem, ptr) {
@@ -89,6 +92,8 @@
 			.row {
 				display: flex;
 				flex-wrap: wrap;
+				align-items: center;
+				justify-content: center;
 			}
 
 			.alert {
@@ -105,6 +110,13 @@
 				top: 0px;
 			}
 
+			@media (max-width: 786px) {
+				.alert {
+					font-size: 1em;
+					padding: 10px;
+				}
+			}
+
 			.view-code {
 				padding: 10px;
 				background-color: beige;
@@ -115,6 +127,11 @@
 				position: fixed;
 				bottom: 0;
 				display: flex;
+			}
+
+			img {
+				width: min(400px, 80vw);
+				height: auto;
 			}
 		</style>
 	</head>
@@ -133,9 +150,14 @@
 					<div>
 						<label> Source: <input type="file" /> </label>
 					</div>
-					<img src="source.png" width="400" />
+					<img
+						src="source.webp"
+						width="400"
+						height="268"
+						alt="source"
+					/>
 				</div>
-				<div style="width: 400px">
+				<div style="width: min(400px, 80vw)">
 					<p>
 						<em>
 							Collection of image segmentation techniques written
@@ -190,6 +212,7 @@
 					display: flex;
 					flex-direction: column;
 					justify-content: space-evenly;
+					align-items: center;
 				"
 			>
 				<div class="row">
@@ -276,6 +299,11 @@
 		<script type="text/javascript">
 			function load(source) {
 				for (const elm of document.getElementsByTagName("canvas")) {
+					if (
+						elm.width === source.width &&
+						elm.height === source.height
+					)
+						continue;
 					elm.width = source.width;
 					elm.height = source.height;
 					run_alg(elm.parentElement.id);
@@ -288,6 +316,11 @@
 				window.height = parseInt(source.height);
 				load(source);
 			};
+			window.addEventListener("resize", () => {
+				window.width = parseInt(source.width);
+				window.height = parseInt(source.height);
+				load(source);
+			});
 
 			function run_alg(alg) {
 				if (window.wasm == undefined || window.width == undefined)
